@@ -5,3 +5,4 @@ authors = ["Michael Khryashchev <me@xiberfix.dev>"]
 edition = "2021"
 
 [dependencies]
+winit = "0.27.2"
