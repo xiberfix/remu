@@ -5,4 +5,4 @@ authors = ["Michael Khryashchev <me@xiberfix.dev>"]
 edition = "2021"
 
 [dependencies]
-winit = "0.27.2"
+eframe = { version = "0.21.3", default-features = false, features = ["default_fonts", "wgpu"] }

@@ -1,27 +1,16 @@
-use winit::dpi::LogicalSize;
-use winit::event::Event;
-use winit::event::WindowEvent;
-use winit::event_loop::EventLoop;
-use winit::window::WindowBuilder;
+use eframe::egui;
 
-fn main() {
-    let event_loop = EventLoop::new();
-    let window = WindowBuilder::new()
-        .with_title("remu")
-        .with_inner_size(LogicalSize::new(1024, 768))
-        .build(&event_loop)
-        .expect("failed to create window");
+use remu::App;
 
-    event_loop.run(move |event, _, control_flow| {
-        control_flow.set_wait();
+fn main() -> Result<(), eframe::Error> {
+    let options = eframe::NativeOptions {
+        initial_window_size: Some(egui::vec2(1024.0, 768.0)),
+        ..Default::default()
+    };
 
-        match event {
-            Event::WindowEvent { event: WindowEvent::CloseRequested, window_id } => {
-                if window.id() == window_id {
-                    control_flow.set_exit()
-                }
-            }
-            _ => ()
-        }
-    });
+    eframe::run_native(
+        "remu",
+        options,
+        Box::new(|_cc| Box::new(App::default())),
+    )
 }
