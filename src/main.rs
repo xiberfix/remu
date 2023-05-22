@@ -5,6 +5,7 @@ use remu::App;
 fn main() -> Result<(), eframe::Error> {
     let options = eframe::NativeOptions {
         initial_window_size: Some(egui::vec2(1024.0, 768.0)),
+        default_theme: eframe::Theme::Light,
         ..Default::default()
     };
 
