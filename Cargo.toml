@@ -1,0 +1,7 @@
+[package]
+name = "remu"
+version = "0.1.0"
+authors = ["Michael Khryashchev <me@xiberfix.dev>"]
+edition = "2024"
+
+[dependencies]
