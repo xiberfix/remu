@@ -20,7 +20,7 @@ fn main() {
     ];
 
     machine.load(0x0000, &program);
-    run_machine(&mut machine, 10);
+    run_machine(&mut machine, 20);
 }
 
 fn run_machine(machine: &mut machine::SimpleMachine, max_cycles: Cycles) {

@@ -10,6 +10,14 @@ pub struct SimpleBus {
     pub memory: [u8; 0x10000],
 }
 
+impl SimpleBus {
+    pub fn new() -> Self {
+        SimpleBus {
+            memory: [0; 0x10000],
+        }
+    }
+}
+
 impl Bus for SimpleBus {
     fn read(&self, addr: u16) -> u8 {
         self.memory[addr as usize]
@@ -29,19 +37,11 @@ impl Bus for SimpleBus {
     }
 }
 
-impl Default for SimpleBus {
-    fn default() -> Self {
-        SimpleBus {
-            memory: [0; 0x10000],
-        }
-    }
-}
-
 impl SimpleMachine {
     pub fn new() -> Self {
         SimpleMachine {
-            cpu: Cpu::default(),
-            bus: SimpleBus::default(),
+            cpu: Cpu::new(),
+            bus: SimpleBus::new(),
         }
     }
 
