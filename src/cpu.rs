@@ -351,6 +351,74 @@ impl Cpu {
                 if dest == 0x06 { 10 } else { 5 }
             }
 
+            // ADD HL,BC
+            0x09 => {
+                self.op_add16(self.bc());
+                11
+            }
+            // ADD HL,DE
+            0x19 => {
+                self.op_add16(self.de());
+                11
+            }
+            // ADD HL,HL
+            0x29 => {
+                self.op_add16(self.hl());
+                11
+            }
+            // ADD HL,SP
+            0x39 => {
+                self.op_add16(self.sp);
+                11
+            }
+
+            // INC BC
+            0x03 => {
+                let value = self.bc().wrapping_add(1);
+                self.set_bc(value);
+                6
+            }
+            // INC DE
+            0x13 => {
+                let value = self.de().wrapping_add(1);
+                self.set_de(value);
+                6
+            }
+            // INC HL
+            0x23 => {
+                let value = self.hl().wrapping_add(1);
+                self.set_hl(value);
+                6
+            }
+            // INC SP
+            0x33 => {
+                self.sp = self.sp.wrapping_add(1);
+                6
+            }
+            // DEC BC
+            0x0B => {
+                let value = self.bc().wrapping_sub(1);
+                self.set_bc(value);
+                6
+            }
+            // DEC DE
+            0x1B => {
+                let value = self.de().wrapping_sub(1);
+                self.set_de(value);
+                6
+            }
+            // DEC HL
+            0x2B => {
+                let value = self.hl().wrapping_sub(1);
+                self.set_hl(value);
+                6
+            }
+            // DEC SP
+            0x3B => {
+                self.sp = self.sp.wrapping_sub(1);
+                6
+            }
+
             // JP addr
             0xC3 => {
                 self.op_jp(bus, true);
@@ -505,6 +573,12 @@ impl Cpu {
         self.set_zsp(r);
         self.flags.aux_carry = (value & 0x0F) == 0x00;
         r
+    }
+
+    fn op_add16(&mut self, value: u16) {
+        let (r, carry) = self.hl().carrying_add(value, false);
+        self.set_hl(r);
+        self.flags.carry = carry;
     }
 
     fn op_jp(&mut self, bus: &dyn Bus, condition: bool) {
