@@ -455,6 +455,28 @@ impl Cpu {
                 4
             }
 
+            // DAA
+            0x27 => {
+                // TODO: implement DAA
+                4
+            }
+            // CPL
+            0x2F => {
+                self.a = !self.a;
+                self.flags.aux_carry = true;
+                4
+            }
+            // SCF
+            0x37 => {
+                self.flags.carry = true;
+                4
+            }
+            // CCF
+            0x3F => {
+                self.flags.carry = !self.flags.carry;
+                4
+            }
+
             // JP addr
             0xC3 | 0xCB => {
                 self.op_jp(bus, true);
@@ -501,6 +523,11 @@ impl Cpu {
                 self.pc = addr;
                 11
             }
+            // JP (HL)
+            0xE9 => {
+                self.pc = self.hl();
+                5
+            }
 
             // EI
             0xFB => {
@@ -513,12 +540,17 @@ impl Cpu {
                 4
             }
 
-            _ => {
-                panic!(
-                    "unimplemented opcode: {:02X} at PC={:04X}",
-                    opcode,
-                    self.pc.wrapping_sub(1),
-                );
+            // IN A,(n)
+            0xDB => {
+                let port = self.fetch_byte(bus);
+                self.a = bus.input(port);
+                10
+            }
+            // OUT (n),A
+            0xD3 => {
+                let port = self.fetch_byte(bus);
+                bus.output(port, self.a);
+                10
             }
         }
     }
