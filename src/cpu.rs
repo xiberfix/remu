@@ -291,7 +291,7 @@ impl Cpu {
                 self.op_cp(value);
                 if src == 0x06 { 7 } else { 4 }
             }
-            
+
             // ADD A,n
             0xC6 => {
                 let value = self.fetch_byte(bus);
@@ -424,6 +424,35 @@ impl Cpu {
             0x3B => {
                 self.sp = self.sp.wrapping_sub(1);
                 6
+            }
+
+            // RLCA
+            0x07 => {
+                let msb = self.a & 0x80;
+                self.a = self.a.rotate_left(1);
+                self.flags.carry = msb != 0;
+                4
+            }
+            // RRCA
+            0x0F => {
+                let lsb = self.a & 0x01;
+                self.a = self.a.rotate_right(1);
+                self.flags.carry = lsb != 0;
+                4
+            }
+            // RLA
+            0x17 => {
+                let msb = self.a & 0x80;
+                self.a = (self.a << 1) | if self.flags.carry { 0x01 } else { 0 };
+                self.flags.carry = msb != 0;
+                4
+            }
+            // RRA
+            0x1F => {
+                let lsb = self.a & 0x01;
+                self.a = (self.a >> 1) | if self.flags.carry { 0x80 } else { 0 };
+                self.flags.carry = lsb != 0;
+                4
             }
 
             // JP addr
