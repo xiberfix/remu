@@ -494,6 +494,14 @@ impl Cpu {
                 if condition { 17 } else { 11 }
             }
 
+            // RST p
+            0xC7 | 0xCF | 0xD7 | 0xDF | 0xE7 | 0xEF | 0xF7 | 0xFF => {
+                let addr = (opcode & 0b00_111_000) as u16;
+                self.op_push(bus, self.pc);
+                self.pc = addr;
+                11
+            }
+
             // EI
             0xFB => {
                 self.iff = true;
