@@ -224,6 +224,23 @@ impl Cpu {
                 7
             }
 
+            // INC r
+            0x04 | 0x0C | 0x14 | 0x1C | 0x24 | 0x2C | 0x34 | 0x3C => {
+                let dest = (opcode >> 3) & 0x07;
+                let value = self.reg(dest, bus);
+                let result = self.op_inc(value);
+                self.set_reg(dest, result, bus);
+                if dest == 0x06 { 10 } else { 5 }
+            }
+            // DEC r
+            0x05 | 0x0D | 0x15 | 0x1D | 0x25 | 0x2D | 0x35 | 0x3D => {
+                let dest = (opcode >> 3) & 0x07;
+                let value = self.reg(dest, bus);
+                let result = self.op_dec(value);
+                self.set_reg(dest, result, bus);
+                if dest == 0x06 { 10 } else { 5 }
+            }
+
             // JP addr
             0xC3 => {
                 self.pc = self.fetch_word(bus);
@@ -335,6 +352,20 @@ impl Cpu {
         self.set_zsp(r as u8);
         self.flags.carry = r < 0;
         self.flags.aux_carry = (self.a & 0x0F) < (value & 0x0F);
+    }
+
+    fn op_inc(&mut self, value: u8) -> u8 {
+        let r = value.wrapping_add(1);
+        self.set_zsp(r);
+        self.flags.aux_carry = (value & 0x0F) + 1 > 0x0F;
+        r
+    }
+
+    fn op_dec(&mut self, value: u8) -> u8 {
+        let r = value.wrapping_sub(1);
+        self.set_zsp(r);
+        self.flags.aux_carry = (value & 0x0F) == 0x00;
+        r
     }
 
     fn set_zsp(&mut self, value: u8) {
