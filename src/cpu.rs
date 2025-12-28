@@ -152,6 +152,43 @@ impl Cpu {
                 10
             }
 
+            // LD SP,HL
+            0xF9 => {
+                self.sp = self.hl();
+                6
+            }
+            // LD HL,(nn)
+            0x2A => {
+                let addr = self.fetch_word(bus);
+                let value = bus.read_word(addr);
+                self.set_hl(value);
+                16
+            }
+            // LD (nn),HL
+            0x22 => {
+                let addr = self.fetch_word(bus);
+                let value = self.hl();
+                bus.write_word(addr, value);
+                16
+            }
+
+            // EX (SP),HL
+            0xE3 => {
+                let hl_old = self.hl();
+                let sp_old = bus.read_word(self.sp);
+                self.set_hl(sp_old);
+                bus.write_word(self.sp, hl_old);
+                19
+            }
+            // EX DE,HL
+            0xEB => {
+                let de_old = self.de();
+                let hl_old = self.hl();
+                self.set_de(hl_old);
+                self.set_hl(de_old);
+                4
+            }
+
             // PUSH BC
             0xC5 => {
                 self.op_push(bus, self.bc());
