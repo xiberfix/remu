@@ -243,23 +243,41 @@ impl Cpu {
 
             // JP addr
             0xC3 => {
-                self.pc = self.fetch_word(bus);
+                self.op_jp(bus, true);
                 10
             }
+            // JP cc,addr
+            0xC2 | 0xCA | 0xD2 | 0xDA | 0xE2 | 0xEA | 0xF2 | 0xFA => {
+                let cc = (opcode >> 3) & 0x07;
+                let condition = self.condition(cc);
+                self.op_jp(bus, condition);
+                10
+            }
+
             // RET
             0xC9 => {
-                let addr = bus.read_word(self.sp);
-                self.sp = self.sp.wrapping_add(2);
-                self.pc = addr;
+                self.op_ret(bus, true);
                 10
             }
+            // RET cc
+            0xC0 | 0xC8 | 0xD0 | 0xD8 | 0xE0 | 0xE8 | 0xF0 | 0xF8 => {
+                let cc = (opcode >> 3) & 0x07;
+                let condition = self.condition(cc);
+                self.op_ret(bus, condition);
+                if condition { 11 } else { 5 }
+            }
+
             // CALL addr
             0xCD => {
-                let addr = self.fetch_word(bus);
-                self.sp = self.sp.wrapping_sub(2);
-                bus.write_word(self.sp, self.sp);
-                self.pc = addr;
+                self.op_call(bus, true);
                 17
+            }
+            // CALL cc,addr
+            0xC4 | 0xCC | 0xD4 | 0xDC | 0xE4 | 0xEC | 0xF4 | 0xFC => {
+                let cc = (opcode >> 3) & 0x07;
+                let condition = self.condition(cc);
+                self.op_call(bus, condition);
+                if condition { 17 } else { 11 }
             }
 
             _ => {
@@ -368,6 +386,30 @@ impl Cpu {
         r
     }
 
+    fn op_jp(&mut self, bus: &dyn Bus, condition: bool) {
+        let addr = self.fetch_word(bus);
+        if condition {
+            self.pc = addr;
+        }
+    }
+
+    fn op_call(&mut self, bus: &mut dyn Bus, condition: bool) {
+        let addr = self.fetch_word(bus);
+        if condition {
+            self.sp = self.sp.wrapping_sub(2);
+            bus.write_word(self.sp, self.pc);
+            self.pc = addr;
+        }
+    }
+
+    fn op_ret(&mut self, bus: &dyn Bus, condition: bool) {
+        if condition {
+            let addr = bus.read_word(self.sp);
+            self.sp = self.sp.wrapping_add(2);
+            self.pc = addr;
+        }
+    }
+
     fn set_zsp(&mut self, value: u8) {
         self.flags.zero = value == 0;
         self.flags.sign = (value & 0x80) != 0;
@@ -446,6 +488,20 @@ impl Cpu {
             5 => self.l = value,
             6 => bus.write(self.hl(), value),
             7 => self.a = value,
+            _ => unreachable!(),
+        }
+    }
+
+    fn condition(&self, code: u8) -> bool {
+        match code {
+            0 => !self.flags.zero,   // NZ
+            1 => self.flags.zero,    // Z
+            2 => !self.flags.carry,  // NC
+            3 => self.flags.carry,   // C
+            4 => !self.flags.parity, // PO
+            5 => self.flags.parity,  // PE
+            6 => !self.flags.sign,   // P
+            7 => self.flags.sign,    // M
             _ => unreachable!(),
         }
     }
