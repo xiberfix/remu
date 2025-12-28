@@ -284,7 +284,14 @@ impl Cpu {
                 self.op_xor(value);
                 if src == 0x06 { 7 } else { 4 }
             }
-
+            // CP A,r
+            0xB8..=0xBF => {
+                let src = opcode & 0x07;
+                let value = self.reg(src, bus);
+                self.op_cp(value);
+                if src == 0x06 { 7 } else { 4 }
+            }
+            
             // ADD A,n
             0xC6 => {
                 let value = self.fetch_byte(bus);
