@@ -66,7 +66,7 @@ impl Cpu {
 
         match opcode {
             // NOP
-            0x00 => 4,
+            0x00 | 0x08 | 0x10 | 0x18 | 0x20 | 0x28 | 0x30 | 0x38 => 4,
 
             // HALT
             0x76 => {
@@ -456,7 +456,7 @@ impl Cpu {
             }
 
             // JP addr
-            0xC3 => {
+            0xC3 | 0xCB => {
                 self.op_jp(bus, true);
                 10
             }
@@ -469,7 +469,7 @@ impl Cpu {
             }
 
             // RET
-            0xC9 => {
+            0xC9 | 0xD9 => {
                 self.op_ret(bus, true);
                 10
             }
@@ -482,7 +482,7 @@ impl Cpu {
             }
 
             // CALL addr
-            0xCD => {
+            0xCD | 0xDD | 0xED | 0xFD => {
                 self.op_call(bus, true);
                 17
             }
