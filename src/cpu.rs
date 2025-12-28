@@ -130,6 +130,22 @@ impl Cpu {
                 self.pc = self.fetch_word(bus);
                 10
             }
+            // RET
+            0xC9 => {
+                let addr = bus.read_word(self.sp);
+                self.sp = self.sp.wrapping_add(2);
+                self.pc = addr;
+                10
+            }
+            // CALL addr
+            0xCD => {
+                let addr = self.fetch_word(bus);
+                self.sp = self.sp.wrapping_sub(2);
+                bus.write_word(self.sp, self.sp);
+                self.pc = addr;
+                17
+            }
+
             _ => {
                 panic!(
                     "unimplemented opcode: {:02X} at PC={:04X}",
