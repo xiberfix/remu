@@ -127,6 +127,77 @@ impl Cpu {
                 13
             }
 
+            // LD BC,nn
+            0x01 => {
+                let value = self.fetch_word(bus);
+                self.set_bc(value);
+                10
+            }
+            // LD DE,nn
+            0x11 => {
+                let value = self.fetch_word(bus);
+                self.set_de(value);
+                10
+            }
+            // LD HL,nn
+            0x21 => {
+                let value = self.fetch_word(bus);
+                self.set_hl(value);
+                10
+            }
+            // LD SP,nn
+            0x31 => {
+                let value = self.fetch_word(bus);
+                self.sp = value;
+                10
+            }
+
+            // PUSH BC
+            0xC5 => {
+                self.op_push(bus, self.bc());
+                11
+            }
+            // PUSH DE
+            0xD5 => {
+                self.op_push(bus, self.de());
+                11
+            }
+            // PUSH HL
+            0xE5 => {
+                self.op_push(bus, self.hl());
+                11
+            }
+            // PUSH AF
+            0xF5 => {
+                self.op_push(bus, self.af());
+                11
+            }
+
+            // POP BC
+            0xC1 => {
+                let value = self.op_pop(bus);
+                self.set_bc(value);
+                10
+            }
+            // POP DE
+            0xD1 => {
+                let value = self.op_pop(bus);
+                self.set_de(value);
+                10
+            }
+            // POP HL
+            0xE1 => {
+                let value = self.op_pop(bus);
+                self.set_hl(value);
+                10
+            }
+            // POP AF
+            0xF1 => {
+                let value = self.op_pop(bus);
+                self.set_af(value);
+                10
+            }
+
             // ADD A,r
             0x80..=0x87 => {
                 let src = opcode & 0x07;
@@ -423,6 +494,17 @@ impl Cpu {
         }
     }
 
+    fn op_push(&mut self, bus: &mut dyn Bus, value: u16) {
+        self.sp = self.sp.wrapping_sub(2);
+        bus.write_word(self.sp, value);
+    }
+
+    fn op_pop(&mut self, bus: &dyn Bus) -> u16 {
+        let value = bus.read_word(self.sp);
+        self.sp = self.sp.wrapping_add(2);
+        value
+    }
+
     fn set_zsp(&mut self, value: u8) {
         self.flags.zero = value == 0;
         self.flags.sign = (value & 0x80) != 0;
@@ -475,6 +557,26 @@ impl Cpu {
     pub fn set_hl(&mut self, value: u16) {
         self.h = (value >> 8) as u8;
         self.l = (value & 0xFF) as u8;
+    }
+
+    pub fn af(&self) -> u16 {
+        let f = 0x02
+            | (if self.flags.zero { 0x40 } else { 0 })
+            | (if self.flags.sign { 0x80 } else { 0 })
+            | (if self.flags.parity { 0x04 } else { 0 })
+            | (if self.flags.aux_carry { 0x10 } else { 0 })
+            | (if self.flags.carry { 0x01 } else { 0 });
+        ((self.a as u16) << 8) | (f as u16)
+    }
+
+    pub fn set_af(&mut self, value: u16) {
+        self.a = (value >> 8) as u8;
+        let f = (value & 0xFF) as u8;
+        self.flags.zero = (f & 0x40) != 0;
+        self.flags.sign = (f & 0x80) != 0;
+        self.flags.parity = (f & 0x04) != 0;
+        self.flags.aux_carry = (f & 0x10) != 0;
+        self.flags.carry = (f & 0x01) != 0;
     }
 
     fn reg(&self, code: u8, bus: &dyn Bus) -> u8 {
