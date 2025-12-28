@@ -125,6 +125,105 @@ impl Cpu {
                 13
             }
 
+            // ADD A,r
+            0x80..=0x87 => {
+                let src = opcode & 0x07;
+                let value = self.reg(src, bus);
+                self.op_add(value);
+                if src == 0x06 { 7 } else { 4 }
+            }
+            // ADC A,r
+            0x88..=0x8F => {
+                let src = opcode & 0x07;
+                let value = self.reg(src, bus);
+                self.op_adc(value);
+                if src == 0x06 { 7 } else { 4 }
+            }
+            // SUB A,r
+            0x90..=0x97 => {
+                let src = opcode & 0x07;
+                let value = self.reg(src, bus);
+                self.op_sub(value);
+                if src == 0x06 { 7 } else { 4 }
+            }
+            // SBC A,r
+            0x98..=0x9F => {
+                let src = opcode & 0x07;
+                let value = self.reg(src, bus);
+                self.op_sbc(value);
+                if src == 0x06 { 7 } else { 4 }
+            }
+            // AND A,r
+            0xA0..=0xA7 => {
+                let src = opcode & 0x07;
+                let value = self.reg(src, bus);
+                self.op_and(value);
+                if src == 0x06 { 7 } else { 4 }
+            }
+            // OR A,r
+            0xB0..=0xB7 => {
+                let src = opcode & 0x07;
+                let value = self.reg(src, bus);
+                self.op_or(value);
+                if src == 0x06 { 7 } else { 4 }
+            }
+            // XOR A,r
+            0xA8..=0xAF => {
+                let src = opcode & 0x07;
+                let value = self.reg(src, bus);
+                self.op_xor(value);
+                if src == 0x06 { 7 } else { 4 }
+            }
+
+            // ADD A,n
+            0xC6 => {
+                let value = self.fetch_byte(bus);
+                self.op_add(value);
+                7
+            }
+            // ADC A,n
+            0xCE => {
+                let value = self.fetch_byte(bus);
+                self.op_adc(value);
+                7
+            }
+            // SUB A,n
+            0xD6 => {
+                let value = self.fetch_byte(bus);
+                self.op_sub(value);
+                7
+            }
+            // SBC A,n
+            0xDE => {
+                let value = self.fetch_byte(bus);
+                self.op_sbc(value);
+                7
+            }
+            // AND A,n
+            0xE6 => {
+                let value = self.fetch_byte(bus);
+                self.op_and(value);
+                7
+            }
+            // OR A,n
+            0xF6 => {
+                let value = self.fetch_byte(bus);
+                self.op_or(value);
+                7
+            }
+            // XOR A,n
+            0xEE => {
+                let value = self.fetch_byte(bus);
+                self.op_xor(value);
+                7
+            }
+            // CP A,n
+            0xFE => {
+                let value = self.fetch_byte(bus);
+                self.op_cp(value);
+                7
+            }
+
             // JP addr
             0xC3 => {
                 self.pc = self.fetch_word(bus);
@@ -166,6 +265,82 @@ impl Cpu {
         let word = bus.read_word(self.pc);
         self.pc = self.pc.wrapping_add(2);
         word
+    }
+
+    fn op_add(&mut self, value: u8) {
+        let r = self.a as u16 + value as u16;
+        self.a = r as u8;
+
+        self.set_zsp(self.a);
+        self.flags.carry = r & 0x100 != 0;
+        self.flags.aux_carry = ((self.a & 0x0F) + (value & 0x0F)) & 0x10 != 0;
+    }
+
+    fn op_adc(&mut self, value: u8) {
+        let carry = if self.flags.carry { 1 } else { 0 };
+        let r = self.a as u16 + value as u16 + carry as u16;
+        self.a = r as u8;
+
+        self.set_zsp(self.a);
+        self.flags.carry = r & 0x100 != 0;
+        self.flags.aux_carry = ((self.a & 0x0F) + (value & 0x0F) + carry) & 0x10 != 0;
+    }
+
+    fn op_sub(&mut self, value: u8) {
+        let r = self.a as i16 - value as i16;
+        self.a = r as u8;
+
+        self.set_zsp(self.a);
+        self.flags.carry = r < 0;
+        self.flags.aux_carry = (self.a & 0x0F) < (value & 0x0F);
+    }
+
+    fn op_sbc(&mut self, value: u8) {
+        let carry = if self.flags.carry { 1 } else { 0 };
+        let r = self.a as i16 - value as i16 - carry as i16;
+        self.a = r as u8;
+
+        self.set_zsp(self.a);
+        self.flags.carry = r < 0;
+        self.flags.aux_carry = (self.a & 0x0F) < (value & 0x0F) + carry;
+    }
+
+    fn op_and(&mut self, value: u8) {
+        self.a &= value;
+
+        self.set_zsp(self.a);
+        self.flags.carry = false;
+        self.flags.aux_carry = true;
+    }
+
+    fn op_or(&mut self, value: u8) {
+        self.a |= value;
+
+        self.set_zsp(self.a);
+        self.flags.carry = false;
+        self.flags.aux_carry = false;
+    }
+
+    fn op_xor(&mut self, value: u8) {
+        self.a ^= value;
+
+        self.set_zsp(self.a);
+        self.flags.carry = false;
+        self.flags.aux_carry = false;
+    }
+
+    fn op_cp(&mut self, value: u8) {
+        let r = self.a as i16 - value as i16;
+
+        self.set_zsp(r as u8);
+        self.flags.carry = r < 0;
+        self.flags.aux_carry = (self.a & 0x0F) < (value & 0x0F);
+    }
+
+    fn set_zsp(&mut self, value: u8) {
+        self.flags.zero = value == 0;
+        self.flags.sign = (value & 0x80) != 0;
+        self.flags.parity = value.count_ones() % 2 == 0;
     }
 
     pub fn to_string(&self) -> String {
