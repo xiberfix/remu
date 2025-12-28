@@ -30,6 +30,7 @@ pub struct Cpu {
     pub sp: u16,
     pub pc: u16,
     pub state: State,
+    pub iff: bool,
 }
 
 impl Cpu {
@@ -52,6 +53,7 @@ impl Cpu {
             sp: 0,
             pc: 0,
             state: State::Running,
+            iff: true,
         }
     }
 
@@ -278,6 +280,17 @@ impl Cpu {
                 let condition = self.condition(cc);
                 self.op_call(bus, condition);
                 if condition { 17 } else { 11 }
+            }
+
+            // EI
+            0xFB => {
+                self.iff = true;
+                4
+            }
+            // DI
+            0xF3 => {
+                self.iff = false;
+                4
             }
 
             _ => {
