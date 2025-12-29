@@ -71,7 +71,7 @@ impl Cpu {
             // HALT
             0x76 => {
                 self.state = State::Halted;
-                4
+                7
             }
 
             // LD r,r'
@@ -178,7 +178,7 @@ impl Cpu {
                 let sp_old = bus.read_word(self.sp);
                 self.set_hl(sp_old);
                 bus.write_word(self.sp, hl_old);
-                19
+                18
             }
             // EX DE,HL
             0xEB => {
@@ -186,7 +186,7 @@ impl Cpu {
                 let hl_old = self.hl();
                 self.set_de(hl_old);
                 self.set_hl(de_old);
-                4
+                5
             }
 
             // PUSH BC
@@ -361,69 +361,69 @@ impl Cpu {
             // ADD HL,BC
             0x09 => {
                 self.op_add16(self.bc());
-                11
+                10
             }
             // ADD HL,DE
             0x19 => {
                 self.op_add16(self.de());
-                11
+                10
             }
             // ADD HL,HL
             0x29 => {
                 self.op_add16(self.hl());
-                11
+                10
             }
             // ADD HL,SP
             0x39 => {
                 self.op_add16(self.sp);
-                11
+                10
             }
 
             // INC BC
             0x03 => {
                 let value = self.bc().wrapping_add(1);
                 self.set_bc(value);
-                6
+                5
             }
             // INC DE
             0x13 => {
                 let value = self.de().wrapping_add(1);
                 self.set_de(value);
-                6
+                5
             }
             // INC HL
             0x23 => {
                 let value = self.hl().wrapping_add(1);
                 self.set_hl(value);
-                6
+                5
             }
             // INC SP
             0x33 => {
                 self.sp = self.sp.wrapping_add(1);
-                6
+                5
             }
             // DEC BC
             0x0B => {
                 let value = self.bc().wrapping_sub(1);
                 self.set_bc(value);
-                6
+                5
             }
             // DEC DE
             0x1B => {
                 let value = self.de().wrapping_sub(1);
                 self.set_de(value);
-                6
+                5
             }
             // DEC HL
             0x2B => {
                 let value = self.hl().wrapping_sub(1);
                 self.set_hl(value);
-                6
+                5
             }
             // DEC SP
             0x3B => {
                 self.sp = self.sp.wrapping_sub(1);
-                6
+                5
             }
 
             // RLCA
@@ -457,13 +457,12 @@ impl Cpu {
 
             // DAA
             0x27 => {
-                // TODO: implement DAA
+                self.op_daa();
                 4
             }
             // CPL
             0x2F => {
                 self.a = !self.a;
-                self.flags.aux_carry = true;
                 4
             }
             // SCF
@@ -567,50 +566,38 @@ impl Cpu {
         word
     }
 
-    fn op_add(&mut self, value: u8) {
-        let r = self.a as u16 + value as u16;
-        self.a = r as u8;
+    fn op_arith(&mut self, value: u8, carry: bool, complement: bool) {
+        let (r, c, ac) = arith(self.a, value, carry, complement);
+        self.a = r;
+        self.set_zsp(r);
+        self.flags.carry = c;
+        self.flags.aux_carry = ac;
+    }
 
-        self.set_zsp(self.a);
-        self.flags.carry = r & 0x100 != 0;
-        self.flags.aux_carry = ((self.a & 0x0F) + (value & 0x0F)) & 0x10 != 0;
+    fn op_add(&mut self, value: u8) {
+        self.op_arith(value, false, false);
     }
 
     fn op_adc(&mut self, value: u8) {
-        let carry = if self.flags.carry { 1 } else { 0 };
-        let r = self.a as u16 + value as u16 + carry as u16;
-        self.a = r as u8;
-
-        self.set_zsp(self.a);
-        self.flags.carry = r & 0x100 != 0;
-        self.flags.aux_carry = ((self.a & 0x0F) + (value & 0x0F) + carry) & 0x10 != 0;
+        self.op_arith(value, self.flags.carry, false);
     }
 
     fn op_sub(&mut self, value: u8) {
-        let r = self.a as i16 - value as i16;
-        self.a = r as u8;
-
-        self.set_zsp(self.a);
-        self.flags.carry = r < 0;
-        self.flags.aux_carry = (self.a & 0x0F) < (value & 0x0F);
+        self.op_arith(value, false, true);
     }
 
     fn op_sbc(&mut self, value: u8) {
-        let carry = if self.flags.carry { 1 } else { 0 };
-        let r = self.a as i16 - value as i16 - carry as i16;
-        self.a = r as u8;
-
-        self.set_zsp(self.a);
-        self.flags.carry = r < 0;
-        self.flags.aux_carry = (self.a & 0x0F) < (value & 0x0F) + carry;
+        self.op_arith(value, self.flags.carry, true);
     }
 
     fn op_and(&mut self, value: u8) {
-        self.a &= value;
+        let r = self.a & value;
 
-        self.set_zsp(self.a);
+        self.set_zsp(r);
         self.flags.carry = false;
-        self.flags.aux_carry = true;
+        self.flags.aux_carry = (self.a | value) & 0x08 != 0; // special case
+
+        self.a = r;
     }
 
     fn op_or(&mut self, value: u8) {
@@ -630,11 +617,11 @@ impl Cpu {
     }
 
     fn op_cp(&mut self, value: u8) {
-        let r = self.a as i16 - value as i16;
+        let (r, c, ac) = arith(self.a, value, false, true);
 
-        self.set_zsp(r as u8);
-        self.flags.carry = r < 0;
-        self.flags.aux_carry = (self.a & 0x0F) < (value & 0x0F);
+        self.set_zsp(r);
+        self.flags.carry = c;
+        self.flags.aux_carry = ac;
     }
 
     fn op_inc(&mut self, value: u8) -> u8 {
@@ -647,13 +634,32 @@ impl Cpu {
     fn op_dec(&mut self, value: u8) -> u8 {
         let r = value.wrapping_sub(1);
         self.set_zsp(r);
-        self.flags.aux_carry = (value & 0x0F) == 0x00;
+        self.flags.aux_carry = (r & 0x0F) != 0x0F;
         r
     }
 
     fn op_add16(&mut self, value: u16) {
         let (r, carry) = self.hl().carrying_add(value, false);
         self.set_hl(r);
+        self.flags.carry = carry;
+    }
+
+    fn op_daa(&mut self) {
+        let mut correction: u8 = 0;
+        let mut carry = self.flags.carry;
+
+        let hi = self.a >> 4;
+        let lo = self.a & 0x0F;
+
+        if lo > 9 || self.flags.aux_carry {
+            correction |= 0x06;
+        }
+        if hi > 9 || self.flags.carry || (hi >= 9 && lo > 9) {
+            correction |= 0x60;
+            carry = true;
+        }
+
+        self.op_add(correction);
         self.flags.carry = carry;
     }
 
@@ -667,16 +673,14 @@ impl Cpu {
     fn op_call(&mut self, bus: &mut dyn Bus, condition: bool) {
         let addr = self.fetch_word(bus);
         if condition {
-            self.sp = self.sp.wrapping_sub(2);
-            bus.write_word(self.sp, self.pc);
+            self.op_push(bus, self.pc);
             self.pc = addr;
         }
     }
 
     fn op_ret(&mut self, bus: &dyn Bus, condition: bool) {
         if condition {
-            let addr = bus.read_word(self.sp);
-            self.sp = self.sp.wrapping_add(2);
+            let addr = self.op_pop(bus);
             self.pc = addr;
         }
     }
@@ -698,23 +702,32 @@ impl Cpu {
         self.flags.parity = value.count_ones() % 2 == 0;
     }
 
+    fn flags8(&self) -> u8 {
+        0x02 | (if self.flags.zero { 0x40 } else { 0 })
+            | (if self.flags.sign { 0x80 } else { 0 })
+            | (if self.flags.parity { 0x04 } else { 0 })
+            | (if self.flags.aux_carry { 0x10 } else { 0 })
+            | (if self.flags.carry { 0x01 } else { 0 })
+    }
+
     pub fn to_string(&self) -> String {
         format!(
-            "PC={:04X} SP={:04X} A={:02X} BC={:02X}{:02X} DE={:02X}{:02X} HL={:02X}{:02X} F=[Z:{} S:{} P:{} AC:{} C:{}] ({:?})",
+            "PC: {:04X}, AF: {:02X}{:02X}, BC: {:02X}{:02X}, DE: {:02X}{:02X}, HL: {:02X}{:02X}, SP: {:04X}, F=[{} {} 0 {} 0 {} 1 {}] ({:?})",
             self.pc,
-            self.sp,
             self.a,
+            self.flags8(),
             self.b,
             self.c,
             self.d,
             self.e,
             self.h,
             self.l,
-            self.flags.zero as u8,
-            self.flags.sign as u8,
-            self.flags.parity as u8,
-            self.flags.aux_carry as u8,
-            self.flags.carry as u8,
+            self.sp,
+            if self.flags.sign { 'S' } else { 's' },
+            if self.flags.zero { 'Z' } else { 'z' },
+            if self.flags.aux_carry { 'A' } else { 'a' },
+            if self.flags.parity { 'P' } else { 'p' },
+            if self.flags.carry { 'C' } else { 'c' },
             self.state,
         )
     }
@@ -747,13 +760,7 @@ impl Cpu {
     }
 
     pub fn af(&self) -> u16 {
-        let f = 0x02
-            | (if self.flags.zero { 0x40 } else { 0 })
-            | (if self.flags.sign { 0x80 } else { 0 })
-            | (if self.flags.parity { 0x04 } else { 0 })
-            | (if self.flags.aux_carry { 0x10 } else { 0 })
-            | (if self.flags.carry { 0x01 } else { 0 });
-        ((self.a as u16) << 8) | (f as u16)
+        ((self.a as u16) << 8) | (self.flags8() as u16)
     }
 
     pub fn set_af(&mut self, value: u16) {
@@ -806,5 +813,44 @@ impl Cpu {
             7 => self.flags.sign,    // M
             _ => unreachable!(),
         }
+    }
+}
+
+fn arith(a: u8, b: u8, carry: bool, complement: bool) -> (u8, bool, bool) {
+    let c = if complement { !carry } else { carry };
+    let b = if complement { !b as u16 } else { b as u16 };
+    let r = a as u16 + b + c as u16;
+
+    let c_out = r & 0x100 != 0;
+    let ac_out = (r as u8 ^ a ^ b as u8) & 0x10 != 0;
+
+    (r as u8, if complement { !c_out } else { c_out }, ac_out)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_arith() {
+        let (result, carry, aux_carry) = arith(0x14, 0x27, false, false);
+        assert_eq!(result, 0x3B);
+        assert_eq!(carry, false);
+        assert_eq!(aux_carry, false);
+
+        let (result, carry, aux_carry) = arith(0xFF, 0x01, false, false);
+        assert_eq!(result, 0x00);
+        assert_eq!(carry, true);
+        assert_eq!(aux_carry, true);
+
+        let (result, carry, aux_carry) = arith(0x10, 0x01, true, false);
+        assert_eq!(result, 0x12);
+        assert_eq!(carry, false);
+        assert_eq!(aux_carry, false);
+
+        let (result, carry, aux_carry) = arith(0x00, 0x01, true, true);
+        assert_eq!(result, 0xFE);
+        assert_eq!(carry, true);
+        assert_eq!(aux_carry, true);
     }
 }

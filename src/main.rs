@@ -14,48 +14,49 @@ fn main() {
 
     let path = &args[1];
     println!("test: {}", path);
-    let cycles = run_test(path);
-    println!("\ncycles: {}", cycles);
+    let (ops, cycles) = run_test(path);
+    println!("\nops: {}, cycles: {}", ops, cycles);
 }
 
-fn run_test(path: &str) -> Cycles {
+fn run_test(path: &str) -> (u64, Cycles) {
     let mut machine = machine::SimpleMachine::new();
+
+    let mut ops: u64 = 0;
     let mut cycles: Cycles = 0;
 
     let program = std::fs::read(path).expect("failed to read test file");
     machine.load(0x0100, &program);
     machine.cpu.pc = 0x0100;
 
-    // CP/M hook
-    machine.bus.write(0x0005, 0xC9); // RET
-    machine.bus.write(0x0000, 0x76); // HALT
+    machine.load(0x0000, &[0x76]); // HLT
+    machine.load(0x0005, &[0xC9]); // RET
 
     loop {
         if machine.cpu.state == cpu::State::Halted {
             break;
         }
-
-        // CP/M hook
+        if machine.cpu.pc == 0x0000 {
+            break;
+        }
         if machine.cpu.pc == 0x0005 {
             process_cpm_call(&mut machine);
         }
 
+        ops += 1;
         cycles += machine.step();
     }
 
-    cycles
+    (ops, cycles)
 }
 
 fn process_cpm_call(machine: &mut machine::SimpleMachine) {
     match machine.cpu.c {
-        0x00 => {
-            // system reset
-            machine.cpu.pc = 0x0000;
-        }
         0x02 => {
             // character output
             let char = machine.cpu.e;
-            print!("{}", char as char);
+            if char >= b' ' || char == b'\n' {
+                print!("{}", char as char);
+            }
         }
         0x09 => {
             // string output
@@ -65,7 +66,9 @@ fn process_cpm_call(machine: &mut machine::SimpleMachine) {
                 if char == b'$' {
                     break;
                 }
-                print!("{}", char as char);
+                if char >= b' ' || char == b'\n' {
+                    print!("{}", char as char);
+                }
                 addr = addr.wrapping_add(1);
             }
         }
