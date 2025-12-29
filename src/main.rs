@@ -7,24 +7,43 @@ mod machine;
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
-    if args.len() != 2 {
-        eprintln!("usage: {} <test>", args[0]);
-        std::process::exit(1);
+    match args.len() {
+        1 => {
+            // run all tests
+            let tests = [
+                "data/8080PRE.COM",
+                "data/TST8080.COM",
+                "data/CPUTEST.COM",
+                "data/8080EXM.COM",
+            ];
+            for test in &tests {
+                run_test(test);
+            }
+        }
+        2 => {
+            // run single test
+            run_test(&args[1]);
+        }
+        _ => {
+            eprintln!("usage: {} [<test>]", args[0]);
+            std::process::exit(1);
+        }
     }
-
-    let path = &args[1];
-    println!("test: {}", path);
-    let (ops, cycles) = run_test(path);
-    println!("\nops: {}, cycles: {}", ops, cycles);
 }
 
-fn run_test(path: &str) -> (u64, Cycles) {
+fn run_test(path: &str) {
+    println!("test: {}", path);
+    let program = std::fs::read(path).expect("failed to read test file");
+    let (ops, cycles) = run_program(&program);
+    println!("\nops: {}, cycles: {}\n", ops, cycles);
+}
+
+fn run_program(program: &[u8]) -> (u64, Cycles) {
     let mut machine = machine::SimpleMachine::new();
 
     let mut ops: u64 = 0;
     let mut cycles: Cycles = 0;
 
-    let program = std::fs::read(path).expect("failed to read test file");
     machine.load(0x0100, &program);
     machine.cpu.pc = 0x0100;
 
